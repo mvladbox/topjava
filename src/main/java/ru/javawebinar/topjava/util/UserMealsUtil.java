@@ -8,6 +8,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.Month;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static java.util.stream.Collectors.toList;
@@ -43,14 +44,14 @@ public class UserMealsUtil {
     }
 
     public static List<UserMealWithExceed> getFilteredWithExceededByStream(List<UserMeal> meals, LocalTime startTime, LocalTime endTime, int caloriesPerDay) {
+        AtomicInteger sum = new AtomicInteger(0);
         return meals.stream()
                 .collect(Collectors.groupingBy(UserMeal::getDate)).values()
                 .stream()
-                .flatMap(dm -> dm.stream().filter(meal -> TimeUtil.isBetween(meal.getTime(), startTime, endTime))
-                        .map(meal -> new UserMealWithExceed(
-                                meal.getDateTime(),
-                                meal.getDescription(),
-                                meal.getCalories(),
-                                dm.stream().mapToInt(UserMeal::getCalories).sum() > caloriesPerDay))).collect(toList());
+                .peek(dm -> sum.set(dm.stream().mapToInt(UserMeal::getCalories).sum()))
+                .flatMap(dm -> dm.stream()
+                        .filter(meal -> TimeUtil.isBetween(meal.getTime(), startTime, endTime))
+                        .map(meal -> new UserMealWithExceed(meal.getDateTime(), meal.getDescription(), meal.getCalories(),sum.get() > caloriesPerDay)))
+                .collect(toList());
     }
 }
